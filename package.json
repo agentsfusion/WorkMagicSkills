@@ -1,0 +1,18 @@
+{
+  "name": "work-magic-skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A collection of domain-specific agent skills for CLI tools and platforms",
+  "license": "MIT",
+  "scripts": {
+    "new-skill": "bash scripts/new-skill.sh",
+    "validate": "bash scripts/validate.sh",
+    "list": "ls -d skills/*/ | grep -v _template | sed 's|skills/||;s|/||'"
+  },
+  "keywords": [
+    "agent",
+    "skills",
+    "cli",
+    "automation"
+  ]
+}
