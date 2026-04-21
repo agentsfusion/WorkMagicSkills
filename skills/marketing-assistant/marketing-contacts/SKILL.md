@@ -21,9 +21,57 @@ Manage customer contacts stored in a Google Sheet. All operations go through the
 
 ## Configuration
 
+The `spreadsheet_id` is resolved in the following priority order:
+
+### Priority 1: memory.md (Recommended)
+
+Read `memory.md` (located at the project root or `skills/marketing-assistant/memory.md`) to look up the customer contacts spreadsheet ID.
+
+**memory.md expected format:**
+
+```yaml
+# memory.md
+marketing_contacts:
+  spreadsheet_id: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+  sheet_name: "CustomerList"
+```
+
+**Lookup steps:**
+
+1. Read `memory.md` from the agent's working directory (or the path above)
+2. Search for a `marketing_contacts` or `spreadsheet_id` key
+3. If found → use that value as `SPREADSHEET_ID`
+4. If not found → fall through to Priority 2
+
+### Priority 2: User-provided value
+
+If the user explicitly provides a spreadsheet ID in the conversation, use that value.
+
+### Priority 3: Prompt user to configure
+
+If `memory.md` does not exist, or does not contain a `marketing_contacts.spreadsheet_id` key, **STOP and prompt the user:**
+
+```
+⚠️ Customer contacts spreadsheet not configured.
+
+To set up, create or update memory.md with:
+
+\```yaml
+marketing_contacts:
+  spreadsheet_id: "YOUR_GOOGLE_SHEET_ID"
+  sheet_name: "CustomerList"
+\```
+
+Or provide the spreadsheet ID directly in this conversation.
+```
+
+Do **NOT** proceed with `REPLACE_WITH_ACTUAL_ID` as the ID — it will fail. Always resolve to a real ID or stop with the configuration prompt.
+
+### Default schema config
+
 ```yaml
 config:
-  spreadsheet_id: "REPLACE_WITH_ACTUAL_ID"
+  spreadsheet_id: "<resolved from memory.md or user input>"
   sheet_name: "CustomerList"
   primary_key: "Email"  # Column C
 ```
@@ -48,10 +96,12 @@ The header row is **row 1**. Data starts at **row 2**.
 
 ## Read Customers
 
+> **Before any operation:** Resolve `SPREADSHEET_ID` from `memory.md` as described in Configuration. All `SPREADSHEET_ID` references below assume this resolution has been done.
+
 ### Read all
 
 ```bash
-gws sheets +read --spreadsheet SPREADSHEET_ID --range "CustomerList"
+gws sheets +read --spreadsheet "$SPREADSHEET_ID" --range "CustomerList"
 ```
 
 ### Filter by company, status, name, or keyword
@@ -61,7 +111,7 @@ Use the two-step pattern from `gws-json-filter`: save output to file, then filte
 **Step 1 — Fetch and save (bash):**
 
 ```bash
-gws sheets +read --spreadsheet SPREADSHEET_ID --range "CustomerList" --format json > _contacts_raw.json
+gws sheets +read --spreadsheet "$SPREADSHEET_ID" --range "CustomerList" --format json > _contacts_raw.json
 ```
 
 **Step 2 — Filter (python):**
@@ -111,7 +161,7 @@ os.remove(filepath)
 Uses `gws sheets +append`. Auto-fill `Status="New"` and `Last Contact Date` with today's date if the user doesn't provide them.
 
 ```bash
-gws sheets +append --spreadsheet SPREADSHEET_ID \
+gws sheets +append --spreadsheet "$SPREADSHEET_ID" \
   --range "CustomerList!A1" \
   --json-values '[["Jane Smith","Acme Corp","jane@acme.com","415-555-0100","New","VP Engineering","2026-04-20","Alice",""]]'
 ```
@@ -163,12 +213,12 @@ Once you have the row number, update by column range:
 ```bash
 # Update Status (column E) for row 3
 gws sheets spreadsheets values update \
-  --params '{"spreadsheetId":"SPREADSHEET_ID","range":"CustomerList!E3","valueInputOption":"USER_ENTERED"}' \
+  --params '{"spreadsheetId":"'"$SPREADSHEET_ID"'","range":"CustomerList!E3","valueInputOption":"USER_ENTERED"}' \
   --json '{"values":[["Contacted"]]}'
 
 # Update multiple fields (E through I) for row 3
 gws sheets spreadsheets values update \
-  --params '{"spreadsheetId":"SPREADSHEET_ID","range":"CustomerList!E3:I3","valueInputOption":"USER_ENTERED"}' \
+  --params '{"spreadsheetId":"'"$SPREADSHEET_ID"'","range":"CustomerList!E3:I3","valueInputOption":"USER_ENTERED"}' \
   --json '{"values":[["Contacted","","2026-04-20","","Updated after phone call"]]}'
 ```
 
@@ -190,7 +240,7 @@ Same as the Update step 1 above.
 ```bash
 # Clear columns A through I for row 3
 gws sheets spreadsheets values clear \
-  --params '{"spreadsheetId":"SPREADSHEET_ID","range":"CustomerList!A3:I3"}' \
+  --params '{"spreadsheetId":"'"$SPREADSHEET_ID"'","range":"CustomerList!A3:I3"}' \
   --json '{}'
 ```
 
@@ -203,7 +253,7 @@ gws sheets spreadsheets values clear \
 
 ```bash
 # Step 1: Save to file
-gws sheets +read --spreadsheet SPREADSHEET_ID --range "CustomerList" --format json > _contacts_raw.json
+gws sheets +read --spreadsheet "$SPREADSHEET_ID" --range "CustomerList" --format json > _contacts_raw.json
 
 # Step 2: Filter for status=New (python)
 # (use the filter script above with the status filter line uncommented)
@@ -212,7 +262,7 @@ gws sheets +read --spreadsheet SPREADSHEET_ID --range "CustomerList" --format js
 ### Example 2: Add a new customer
 
 ```bash
-gws sheets +append --spreadsheet SPREADSHEET_ID \
+gws sheets +append --spreadsheet "$SPREADSHEET_ID" \
   --range "CustomerList!A1" \
   --json-values '[["Bob Chen","TechStart Inc","bob@techstart.io","555-0199","New","CTO","2026-04-20","Alice","Met at SaaS conference"]]'
 ```
@@ -221,12 +271,12 @@ gws sheets +append --spreadsheet SPREADSHEET_ID \
 
 ```bash
 # Step 1: Read to find row
-gws sheets +read --spreadsheet SPREADSHEET_ID --range "CustomerList" --format json > _contacts_raw.json
+gws sheets +read --spreadsheet "$SPREADSHEET_ID" --range "CustomerList" --format json > _contacts_raw.json
 # (run Python row-finder with target email)
 
 # Step 2: Update status (assume row 5)
 gws sheets spreadsheets values update \
-  --params '{"spreadsheetId":"SPREADSHEET_ID","range":"CustomerList!E5","valueInputOption":"USER_ENTERED"}' \
+  --params '{"spreadsheetId":"'"$SPREADSHEET_ID"'","range":"CustomerList!E5","valueInputOption":"USER_ENTERED"}' \
   --json '{"values":[["Replied"]]}'
 ```
 
