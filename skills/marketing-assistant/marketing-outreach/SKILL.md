@@ -20,6 +20,21 @@ Compose and send personalized outreach emails via Gmail, with automatic status u
 - Authenticated via `gws auth login` (see `gws-shared` skill)
 - A Google Sheet with the CustomerList schema (same sheet as `marketing-contacts`)
 
+## Working Directory Rule
+
+When a `gws` command includes the `--attach` / `-a` flag (file attachment), **always `cd` to the current workspace directory before executing the command**. This ensures file paths resolve correctly regardless of the shell's current working directory.
+
+```bash
+# When using --attach, cd to workspace first
+cd "$WORKSPACE_DIR" && gws gmail +send --to "jane@acme.com" \
+  --subject "Proposal" \
+  --body "Hi Jane, please find attached..." \
+  --attach ./proposals/acme-proposal.pdf \
+  --draft
+```
+
+This rule applies to all commands that accept `--attach` (`+send`, `+reply`, `+reply-all`, `+forward`).
+
 ## Configuration
 
 ```yaml
@@ -293,6 +308,11 @@ gws sheets spreadsheets values batchUpdate \
 
 > [!CAUTION]
 > **Always draft-first.** Every email must go through `--draft` before sending. Never auto-send without human review of the composed content. This is non-negotiable.
+>
+> **Working directory for attachments.** When using `--attach` / `-a`, always `cd` to the current workspace directory before running the `gws` command. Example:
+> ```bash
+> cd "$WORKSPACE_DIR" && gws gmail +send --to "jane@acme.com" --subject "Proposal" --body "..." --attach ./docs/proposal.pdf --draft
+> ```
 >
 > After the user approves and the email is sent, always update the Sheet. If the Sheet update fails, inform the user so they can update manually.
 
